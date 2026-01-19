@@ -30,6 +30,14 @@ def preprocess(df: pd.DataFrame) -> pd.DataFrame:
         # Drop the raw date column (presentation-friendly, avoids non-numeric raw text)
         df = df.drop(columns=["dteday"])
 
+    # Prevent target leakage: cnt = casual + registered
+    leak_cols = [c for c in ["casual", "registered"] if c in df.columns]
+    if leak_cols:
+        df = df.drop(columns=leak_cols)
+
+    # Drop row-id column (not a real feature)
+    if "instant" in df.columns:
+        df = df.drop(columns=["instant"])
     # 4) Handle missing values (simple strategy, presentation-aligned)
     # For numeric columns: fill with median
     num_cols = df.select_dtypes(include=["number"]).columns
