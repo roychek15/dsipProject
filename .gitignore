@@ -1,0 +1,15 @@
+# PyCharm
+.idea/
+
+# Virtual environment
+venv/
+.venv/
+
+# Data science artifacts
+data/
+models/
+results/
+
+# Python
+__pycache__/
+*.pyc
