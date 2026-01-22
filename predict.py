@@ -4,7 +4,7 @@ import joblib
 import pandas as pd
 
 
-TARGET_COL = "cnt"
+TARGET_COL = "review_scores_rating"
 
 
 def load_model(model_path: str):

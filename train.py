@@ -13,7 +13,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.pipeline import Pipeline
 
 
-TARGET_COL = "cnt"
+TARGET_COL = "review_scores_rating"
 
 
 def load_data(csv_path: str) -> pd.DataFrame:
