@@ -117,7 +117,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--csv-path",
         type=str,
-        default="data/bike_day_processed.csv",
+        default="data/processed.csv",
         help="Path to processed CSV (output of preprocess.py)",
     )
     parser.add_argument("--seed", type=int, default=42)
