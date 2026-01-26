@@ -2,23 +2,23 @@ import argparse
 import json
 import os
 from datetime import datetime
-
+from capston_polaris_v4 import *
 import joblib
 import numpy as np
 import pandas as pd
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.impute import SimpleImputer
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
-from sklearn.model_selection import train_test_split
 from sklearn.pipeline import Pipeline
 
-
-TARGET_COL = "review_scores_rating"
-
-
-def load_data(csv_path: str) -> pd.DataFrame:
-    return pd.read_csv(csv_path)
-
+def load_data(csv_path: str) :
+    train = pd.read_csv(csv_path+"/train.csv")
+    test = pd.read_csv(csv_path+"/test.csv")
+    X_train = train.drop(columns=[Y_COL])
+    y_train = train[Y_COL]
+    X_test = test.drop(columns=[Y_COL])
+    y_test = test[Y_COL]
+    return X_train, y_train, X_test, y_test
 
 def build_model(seed: int, n_estimators: int) -> Pipeline:
     """
@@ -45,16 +45,8 @@ def ensure_dir(path: str) -> None:
         os.makedirs(path, exist_ok=True)
 
 
-def train_and_evaluate(df: pd.DataFrame, seed: int, test_size: float, n_estimators: int):
-    if TARGET_COL not in df.columns:
-        raise ValueError(f"Target column '{TARGET_COL}' not found. Columns: {list(df.columns)}")
-
-    X = df.drop(columns=[TARGET_COL])
-    y = df[TARGET_COL].values
-
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=test_size, random_state=seed
-    )
+def train_and_evaluate(X_train: pd.DataFrame, y_train: pd.DataFrame, X_test: pd.DataFrame,
+                       y_test: pd.DataFrame, seed: int, n_estimators: int):
 
     model = build_model(seed=seed, n_estimators=n_estimators)
     model.fit(X_train, y_train)
@@ -65,7 +57,6 @@ def train_and_evaluate(df: pd.DataFrame, seed: int, test_size: float, n_estimato
     metrics = {
         "model": "RandomForestRegressor",
         "seed": int(seed),
-        "test_size": float(test_size),
         "n_estimators": int(n_estimators),
         "n_train": int(len(X_train)),
         "n_test": int(len(X_test)),
@@ -117,13 +108,11 @@ if __name__ == "__main__":
     parser.add_argument(
         "--csv-path",
         type=str,
-        default="data/processed.csv",
+        default="data",
         help="Path to processed CSV (output of preprocess.py)",
     )
-    parser.add_argument("--seed", type=int, default=42)
-    parser.add_argument("--test-size", type=float, default=0.2)
     parser.add_argument("--n-estimators", type=int, default=300)
-
+    parser.add_argument("--seed", type=int, default=42)
     parser.add_argument(
         "--model-out",
         type=str,
@@ -139,9 +128,9 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    df = load_data(args.csv_path)
+    X_train, y_train, X_test, y_test = load_data(args.csv_path)
     model, metrics, preds_train, preds_test = train_and_evaluate(
-        df=df, seed=args.seed, test_size=args.test_size, n_estimators=args.n_estimators
+        X_train, y_train, X_test, y_test, seed=args.seed, n_estimators=args.n_estimators
     )
 
     preds_train_path, preds_test_path, metrics_path = save_artifacts(

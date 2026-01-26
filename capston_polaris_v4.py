@@ -8,7 +8,7 @@ from sklearn.model_selection import train_test_split
 
 DEFAULT_DATASET1_LOC = 'https://raw.githubusercontent.com/sam-israel/general/refs/heads/master/listings%20NYC.csv'
 DEFAULT_DATASET2_LOC = 'https://raw.githubusercontent.com/sam-israel/general/refs/heads/master/listings%20LA.csv'
-DEFAULT_OUTPUT_LOC = "data/processed.csv"
+DEFAULT_OUTPUT_LOC = "data"
 Y_COL = "review_scores_rating"
 
 
