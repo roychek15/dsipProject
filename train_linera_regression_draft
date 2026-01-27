@@ -1,0 +1,142 @@
+!pip -q install wandb
+
+import wandb
+wandb.login()  
+
+import pandas as pd
+import numpy as np
+
+from sklearn.model_selection import train_test_split
+from sklearn.compose import ColumnTransformer
+from sklearn.pipeline import Pipeline
+from sklearn.impute import SimpleImputer
+from sklearn.preprocessing import StandardScaler, RobustScaler
+from sklearn.linear_model import LinearRegression, Ridge
+from sklearn.metrics import mean_squared_error
+
+TARGET_COL = "review_scores_rating"
+
+def load_data(csv_path: str) -> pd.DataFrame:
+    return pd.read_csv(csv_path)
+
+def make_splits(df: pd.DataFrame, target: str, test_size=0.2, val_size=0.2, seed=42):
+    train_val, test = train_test_split(df, test_size=test_size, random_state=seed)
+    train, val = train_test_split(train_val, test_size=val_size, random_state=seed)
+
+    X_train, y_train = train.drop(columns=[target]), train[target]
+    X_val, y_val     = val.drop(columns=[target]), val[target]
+    X_test, y_test   = test.drop(columns=[target]), test[target]
+    return X_train, y_train, X_val, y_val, X_test, y_test
+
+def build_model_pipeline(model, numeric_features, scaler_name="standard"):
+    scaler = StandardScaler() if scaler_name == "standard" else RobustScaler()
+
+    preprocessor = ColumnTransformer(
+        transformers=[
+            ("num", Pipeline(steps=[
+                ("imputer", SimpleImputer(strategy="median")),
+                ("scaler", scaler),
+            ]), numeric_features),
+        ],
+        remainder="drop",
+        verbose_feature_names_out=False
+    )
+
+    pipe = Pipeline(steps=[
+        ("prep", preprocessor),
+        ("model", model),
+    ])
+    return pipe
+
+def rmse(y_true, y_pred) -> float:
+    return mean_squared_error(y_true, y_pred, squared=False)
+
+def run_experiment(config: dict):
+    df = load_data(config["data_path"])
+
+    numeric_features = config["features"]
+    target = config["target"]
+
+    df = df[numeric_features + [target]].dropna(subset=[target])
+
+    X_train, y_train, X_val, y_val, X_test, y_test = make_splits(
+        df, target,
+        test_size=config["test_size"],
+        val_size=config["val_size"],
+        seed=config["seed"]
+    )
+    # Model
+    if config["model_type"] == "linear":
+        model = LinearRegression()
+    elif config["model_type"] == "ridge":
+        model = Ridge(alpha=config["alpha"], random_state=config["seed"])
+    else:
+        raise ValueError("Unsupported model_type")
+
+    pipe = build_model_pipeline(
+        model=model,
+        numeric_features=numeric_features,
+        scaler_name=config["scaler"]
+    )
+
+    # Train
+    pipe.fit(X_train, y_train)
+
+    # Eval
+    pred_train = pipe.predict(X_train)
+    pred_val   = pipe.predict(X_val)
+    pred_test  = pipe.predict(X_test)
+
+    metrics = {
+        "rmse_train": rmse(y_train, pred_train),
+        "rmse_val": rmse(y_val, pred_val),
+        "rmse_test": rmse(y_test, pred_test),
+        "n_train": len(X_train),
+        "n_val": len(X_val),
+        "n_test": len(X_test),
+    }
+    return metrics
+
+
+# W&B run
+config = {
+    "team_member": "Liat",
+    "experiment_name": "lr_baseline_standard_v1",
+
+    # Data
+    "data_path": DATA_PATH,
+    "dataset_version": "v1",
+
+    # Split
+    "seed": 42,
+    "test_size": 0.2,
+    "val_size": 0.2,
+
+    # Features/Target
+    "target": "price",
+    "features": [
+        "accommodates",
+        "bedrooms",
+        "bathrooms",
+        "number_of_reviews",
+        "availability_365"
+    ],
+
+    # Model + preprocessing 
+    "model_type": "linear",      # "linear" or "ridge"
+    "alpha": 1.0,                # relevant only for model_type="ridge"
+    "scaler": "standard",        # "standard" or "robust"
+}
+
+wandb.init(
+    project="airbnb-capstone",
+    name=config["experiment_name"],
+    config=config
+)
+
+metrics = run_experiment(config)
+wandb.log(metrics)
+
+print("Logged metrics:", metrics)
+
+wandb.finish()
