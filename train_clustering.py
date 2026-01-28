@@ -28,7 +28,7 @@ def train_and_evaluate(X_train: pd.DataFrame, y_train: pd.DataFrame,
     X_train = pd.DataFrame(imputer.fit_transform(X_train), columns=X_train.columns)
 
     best_inertia = 0
-    for k in [2, 3, 4, 5, 6]:
+    for k in [2, 3, 4, 5, 6, 8]:
         with wandb.init(project="kmeans-comparison", config={"k": k}):
             km = KMeans(n_clusters=k, n_init="auto")
             km.fit(X_train)

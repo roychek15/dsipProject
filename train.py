@@ -1,6 +1,7 @@
 import argparse
 import json
 import os
+import wandb
 from datetime import datetime
 from capston_polaris_v4 import *
 import joblib
@@ -10,6 +11,7 @@ from sklearn.ensemble import RandomForestRegressor
 from sklearn.impute import SimpleImputer
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 from sklearn.pipeline import Pipeline
+os.environ['WANDB_API_KEY'] = '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'
 
 def load_data(csv_path: str) :
     train = pd.read_csv(csv_path+"/train.csv")
@@ -48,11 +50,19 @@ def ensure_dir(path: str) -> None:
 def train_and_evaluate(X_train: pd.DataFrame, y_train: pd.DataFrame, X_test: pd.DataFrame,
                        y_test: pd.DataFrame, seed: int, n_estimators: int):
 
-    model = build_model(seed=seed, n_estimators=n_estimators)
-    model.fit(X_train, y_train)
+    for n in range(100, n_estimators+1, 100):
+        with wandb.init(project="tree-comparison", config={"n_estimators":n}):
+            model = build_model(seed=seed, n_estimators=n)
+            model.fit(X_train, y_train)
 
-    y_pred_train = model.predict(X_train)
-    y_pred_test = model.predict(X_test)
+            y_pred_train = model.predict(X_train)
+            y_pred_test = model.predict(X_test)
+
+            wandb.log({"n_estimators": n,
+                       "rmse_train": float(np.sqrt(mean_squared_error(y_train, y_pred_train))),
+                       "rmse_test": float(np.sqrt(mean_squared_error(y_test, y_pred_test))),
+                       "mae_train": float(mean_absolute_error(y_train, y_pred_train)),
+                       "mae_test": float(mean_absolute_error(y_test, y_pred_test))})
 
     metrics = {
         "model": "RandomForestRegressor",
@@ -111,7 +121,7 @@ if __name__ == "__main__":
         default="data",
         help="Path to processed CSV (output of preprocess.py)",
     )
-    parser.add_argument("--n-estimators", type=int, default=300)
+    parser.add_argument("--n-estimators", type=int, default=500)
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument(
         "--model-out",
@@ -128,6 +138,7 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
+    # train the tree
     X_train, y_train, X_test, y_test = load_data(args.csv_path)
     model, metrics, preds_train, preds_test = train_and_evaluate(
         X_train, y_train, X_test, y_test, seed=args.seed, n_estimators=args.n_estimators
