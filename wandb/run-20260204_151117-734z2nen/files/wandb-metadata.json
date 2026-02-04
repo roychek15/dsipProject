@@ -1,0 +1,28 @@
+{
+  "os":  "Linux-6.8.0-90-generic-x86_64-with-glibc2.39",
+  "python":  "CPython 3.12.3",
+  "startedAt":  "2026-02-04T13:11:17.417119Z",
+  "program":  "/home/shmuel/projects/temp/ydata/dsipProject/train.py",
+  "codePath":  "train.py",
+  "codePathLocal":  "train.py",
+  "git":  {
+    "remote":  "https://github.com/roychek15/dsipProject",
+    "commit":  "7618ced504852dacf6ae0805707e26ccd00ee6ae"
+  },
+  "email":  "pazit.shefet@gmail.com",
+  "root":  "/home/shmuel/projects/temp/ydata/dsipProject",
+  "host":  "infocore-pc3",
+  "executable":  "/home/shmuel/projects/temp/ydata/dsipProject/venv/bin/python3",
+  "cpu_count":  12,
+  "cpu_count_logical":  24,
+  "disk":  {
+    "/":  {
+      "total":  "2014573477888",
+      "used":  "1624988680192"
+    }
+  },
+  "memory":  {
+    "total":  "134754512896"
+  },
+  "writerId":  "rp4oj4ecuwmpt55xs9s001w8zgyjcei6"
+}

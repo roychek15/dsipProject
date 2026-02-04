@@ -130,8 +130,11 @@ def drop_redunt_cols(df):
 def transformation(arr, y_col = Y_COL):
   """Feature engeneering"""
 
-  y = arr.loc[:,y_col]
-  X = arr.copy().drop(columns=y_col)
+  if y_col is None:
+    X = arr.copy()
+  else:
+    y = arr.loc[:,y_col]
+    X = arr.copy().drop(columns=y_col)
 
   for i in X.select_dtypes("number").columns:
     X[i + "_isNA"] = X[i].isna() # Make an indicator column for NA values in numeric columns
@@ -148,7 +151,10 @@ def transformation(arr, y_col = Y_COL):
   for i in X.select_dtypes(include=["bool"]).columns: # Convert bool to Int (technical)
       X[i] = X[i].astype("Int32")
 
-  return pd.concat([X,y], axis=1)
+  if y_col is None:
+    return X
+  else:  
+    return pd.concat([X,y], axis=1)
 
 
 

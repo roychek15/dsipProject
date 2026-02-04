@@ -1,0 +1,1 @@
+{"rmse_train":0.248411243942278,"_runtime":14,"_timestamp":1.7702109267838776e+09,"_step":0,"n_estimators":400,"_wandb":{"runtime":14},"mae_test":0.22118900849534098,"rmse_test":0.40971196525511067,"mae_train":0.15500514533170617}
