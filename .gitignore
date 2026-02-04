@@ -13,6 +13,7 @@ data/
 models/
 results/
 archived_experiments/
+wandb/
 
 # Python
 __pycache__/

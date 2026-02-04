@@ -13,6 +13,8 @@ from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 from sklearn.pipeline import Pipeline
 os.environ['WANDB_API_KEY'] = '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'
 
+MAX_DEPTH = 16
+
 def load_data(csv_path: str) :
     train = pd.read_csv(csv_path+"/train.csv")
     test = pd.read_csv(csv_path+"/test.csv")
@@ -30,6 +32,7 @@ def build_model(seed: int, n_estimators: int) -> Pipeline:
     rf = RandomForestRegressor(
         n_estimators=n_estimators,
         random_state=seed,
+        max_depth = MAX_DEPTH,
         n_jobs=-1,
     )
 
@@ -95,7 +98,8 @@ def save_artifacts(
     ensure_dir(os.path.dirname(model_out) or ".")
     ensure_dir(results_dir)
 
-    joblib.dump(model, model_out)
+    model.set_params(model__n_jobs=1)
+    joblib.dump(model, model_out, compress=("lz4", 3)) 
 
     preds_train_path = os.path.join(results_dir, "pred_train.csv")
     preds_test_path = os.path.join(results_dir, "pred_test.csv")

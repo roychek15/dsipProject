@@ -1,0 +1,1 @@
+{"_wandb":{"runtime":18},"n_estimators":500,"mae_train":0.15484266058453494,"rmse_train":0.2480994738911497,"rmse_test":0.4098485139317298,"_timestamp":1.7702107144971557e+09,"_runtime":18,"mae_test":0.22128433050002272,"_step":0}
