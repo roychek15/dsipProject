@@ -7,7 +7,7 @@ from capston_polaris_v4 import *
 import joblib
 import numpy as np
 import pandas as pd
-from sklearn.ensemble import RandomForestRegressor
+from sklearn.ensemble import RandomForestRegressor, ExtraTreesRegressor
 from sklearn.impute import SimpleImputer
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 from sklearn.pipeline import Pipeline
@@ -25,11 +25,14 @@ def load_data(csv_path: str) :
 
 param_grid = {                      # The below are the best params we have found
     "model__n_estimators": [500],   #[500,1000,1500],
-    "model__max_depth": [12]    #[12,14,16]
+    "model__max_depth": [10,12],    #[12,14,16]
+    "model__min_samples_leaf":[5],
+    "model__max_features":[10],
+    "model__max_samples" : [0.85]
 }
 
 
-def build_model(seed: int, n_estimators=1, max_depth=1) -> Pipeline:
+def build_model(seed: int, n_estimators=1, max_depth=1, min_samples_leaf=1, max_features=1, max_samples=1) -> Pipeline:
     """
     Production-friendly baseline:
     median imputation -> RandomForestRegressor
@@ -38,6 +41,9 @@ def build_model(seed: int, n_estimators=1, max_depth=1) -> Pipeline:
         n_estimators=n_estimators,
         random_state=seed,
         max_depth = max_depth,
+        min_samples_leaf=min_samples_leaf,
+        max_features=max_features,
+        max_samples=max_samples,
         n_jobs=-1,
     )
 
@@ -78,7 +84,9 @@ def train_and_evaluate(X_train: pd.DataFrame, y_train: pd.DataFrame, X_test: pd.
       y_pred_test = best_model.predict(X_test)
 
 
-      wandb.log({"n_estimators": search.best_params_["model__n_estimators"], "max_depth": search.best_params_["model__max_depth"],
+      wandb.log({"n_estimators": search.best_params_["model__n_estimators"], "max_depth": search.best_params_["model__max_depth"], 
+		       "min_samples_leaf":search.best_params_["model__min_samples_leaf"], "max_features":search.best_params_["model__max_features"],
+		       "max_samples":search.best_params_["model__max_samples"],
                        "rmse_train": float(np.sqrt(mean_squared_error(y_train, y_pred_train))),
                        "rmse_test": float(np.sqrt(mean_squared_error(y_test, y_pred_test))),
                        "mae_train": float(mean_absolute_error(y_train, y_pred_train)),
@@ -89,6 +97,8 @@ def train_and_evaluate(X_train: pd.DataFrame, y_train: pd.DataFrame, X_test: pd.
         "seed": int(seed),
         "n_estimators": int(best_model.get_params()["model__n_estimators"]),
         "max_depth": int(best_model.get_params()["model__max_depth"]),
+        "min_samples_leaf":best_model.get_params()["model__min_samples_leaf"], "max_features":best_model.get_params()["model__max_features"],
+        "max_samples":best_model.get_params()["model__max_samples"],
         "n_train": int(len(X_train)),
         "n_test": int(len(X_test)),
         "rmse_train": float(np.sqrt(mean_squared_error(y_train, y_pred_train))),
