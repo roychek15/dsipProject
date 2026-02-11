@@ -121,10 +121,9 @@ def drop_dup_rows(df):
 
 def drop_redunt_cols(df):
     """Drop  redundant columns"""
-    return df.drop(  columns= [ "minimum_minimum_nights",
-    "maximum_minimum_nights",
-     "minimum_maximum_nights",
-    "maximum_maximum_nights","minimum_nights_avg_ntm",  "maximum_nights_avg_ntm" ])
+    for i in [ "minimum_minimum_nights", "maximum_minimum_nights", "minimum_maximum_nights", "maximum_maximum_nights","minimum_nights_avg_ntm",  "maximum_nights_avg_ntm" ]:
+      df.drop(i)
+
 
 
 def transformation(arr, y_col = Y_COL):

@@ -11,9 +11,8 @@ from sklearn.ensemble import RandomForestRegressor
 from sklearn.impute import SimpleImputer
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 from sklearn.pipeline import Pipeline
+from sklearn.model_selection import KFold, GridSearchCV
 os.environ['WANDB_API_KEY'] = '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'
-
-MAX_DEPTH = 16
 
 def load_data(csv_path: str) :
     train = pd.read_csv(csv_path+"/train.csv")
@@ -24,7 +23,13 @@ def load_data(csv_path: str) :
     y_test = test[Y_COL]
     return X_train, y_train, X_test, y_test
 
-def build_model(seed: int, n_estimators: int) -> Pipeline:
+param_grid = {                      # The below are the best params we have found
+    "model__n_estimators": [1000],   #[500,1000,1500],
+    "model__max_depth": [12]    #[12,14,16]
+}
+
+
+def build_model(seed: int, n_estimators=100, max_depth=10) -> Pipeline:
     """
     Production-friendly baseline:
     median imputation -> RandomForestRegressor
@@ -32,7 +37,7 @@ def build_model(seed: int, n_estimators: int) -> Pipeline:
     rf = RandomForestRegressor(
         n_estimators=n_estimators,
         random_state=seed,
-        max_depth = MAX_DEPTH,
+        max_depth = max_depth,
         n_jobs=-1,
     )
 
@@ -53,15 +58,29 @@ def ensure_dir(path: str) -> None:
 def train_and_evaluate(X_train: pd.DataFrame, y_train: pd.DataFrame, X_test: pd.DataFrame,
                        y_test: pd.DataFrame, seed: int, n_estimators: int):
 
-    for n in range(100, n_estimators+1, 100):
-        with wandb.init(project="tree-comparison", config={"n_estimators":n}):
-            model = build_model(seed=seed, n_estimators=n)
-            model.fit(X_train, y_train)
+    search_model=build_model(seed=seed)
 
-            y_pred_train = model.predict(X_train)
-            y_pred_test = model.predict(X_test)
+    search = GridSearchCV(search_model, param_grid, cv=5, scoring="neg_root_mean_squared_error")
 
-            wandb.log({"n_estimators": n,
+    search.fit(X_train, y_train)
+
+    print(search.best_params_)
+
+    best_model = search.best_estimator_
+
+
+#    for n in range(100, n_estimators+1, 100):
+#            model = build_model(seed=seed, n_estimators=n)
+#            model.fit(X_train, y_train)
+
+    with wandb.init(project="tree-comparison"):#, config={"n_estimators"}):
+
+
+      y_pred_train = best_model.predict(X_train)
+      y_pred_test = best_model.predict(X_test)
+
+
+      wandb.log({"n_estimators": search.best_params_["model__n_estimators"], "max_depth": search.best_params_["model__max_depth"],
                        "rmse_train": float(np.sqrt(mean_squared_error(y_train, y_pred_train))),
                        "rmse_test": float(np.sqrt(mean_squared_error(y_test, y_pred_test))),
                        "mae_train": float(mean_absolute_error(y_train, y_pred_train)),
@@ -84,7 +103,7 @@ def train_and_evaluate(X_train: pd.DataFrame, y_train: pd.DataFrame, X_test: pd.
     preds_train = pd.DataFrame({"y_true": y_train, "y_pred": y_pred_train})
     preds_test = pd.DataFrame({"y_true": y_test, "y_pred": y_pred_test})
 
-    return model, metrics, preds_train, preds_test
+    return best_model, metrics, preds_train, preds_test
 
 
 def save_artifacts(
@@ -118,7 +137,7 @@ def save_artifacts(
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Train RandomForest on processed bike dataset")
+    parser = argparse.ArgumentParser(description="Train RandomForest on processed airbnb dataset")
     parser.add_argument(
         "--csv-path",
         type=str,
