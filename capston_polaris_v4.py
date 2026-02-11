@@ -147,7 +147,9 @@ def transformation(arr, y_col = Y_COL):
 
   for i in X.select_dtypes(include=["datetime"]): # Convert each date into the number of days since 1/1/2000
     t0 = pd.Timestamp("2000-01-01")
-    X[i] = (X[i] - t0).dt.days
+    X[i] = (X[i] - t0).dt.days.astype("Int32")
+
+  X["from_first_to_last"] = X["last_review"] - X["first_review"]
 
   for i in X.select_dtypes(include=["bool"]).columns: # Convert bool to Int (technical)
       X[i] = X[i].astype("Int32")
