@@ -11,6 +11,7 @@ venv/
 # Data science artifacts
 data/
 models/
+archived_models/
 results/
 archived_experiments/
 wandb/
