@@ -24,12 +24,12 @@ def load_data(csv_path: str) :
     return X_train, y_train, X_test, y_test
 
 param_grid = {                      # The below are the best params we have found
-    "model__n_estimators": [1000],   #[500,1000,1500],
+    "model__n_estimators": [500],   #[500,1000,1500],
     "model__max_depth": [12]    #[12,14,16]
 }
 
 
-def build_model(seed: int, n_estimators=100, max_depth=10) -> Pipeline:
+def build_model(seed: int, n_estimators=1, max_depth=1) -> Pipeline:
     """
     Production-friendly baseline:
     median imputation -> RandomForestRegressor
@@ -43,7 +43,7 @@ def build_model(seed: int, n_estimators=100, max_depth=10) -> Pipeline:
 
     pipe = Pipeline(
         steps=[
-            ("imputer", SimpleImputer(strategy="median")),
+            ("imputer", SimpleImputer(strategy="constant", fill_value = -1)),
             ("model", rf),
         ]
     )
@@ -64,10 +64,8 @@ def train_and_evaluate(X_train: pd.DataFrame, y_train: pd.DataFrame, X_test: pd.
 
     search.fit(X_train, y_train)
 
-    print(search.best_params_)
-
     best_model = search.best_estimator_
-
+#    print(best_model.get_params())
 
 #    for n in range(100, n_estimators+1, 100):
 #            model = build_model(seed=seed, n_estimators=n)
@@ -89,7 +87,8 @@ def train_and_evaluate(X_train: pd.DataFrame, y_train: pd.DataFrame, X_test: pd.
     metrics = {
         "model": "RandomForestRegressor",
         "seed": int(seed),
-        "n_estimators": int(n_estimators),
+        "n_estimators": int(best_model.get_params()["model__n_estimators"]),
+        "max_depth": int(best_model.get_params()["model__max_depth"]),
         "n_train": int(len(X_train)),
         "n_test": int(len(X_test)),
         "rmse_train": float(np.sqrt(mean_squared_error(y_train, y_pred_train))),

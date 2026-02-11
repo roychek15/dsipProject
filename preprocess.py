@@ -8,7 +8,7 @@ def preprocess(df1, df2):
     clean_airbnb_schema(df2, inplace=True);
 
     # Concatenate the two datasets
-    df_all = concat_datasets(df1, df2, df1_citycode=1, df2_citycode=0)
+    df_all = concat_datasets(df1, df2)
     
     # Drop duplicate rows
     df_all = drop_dup_rows(df_all)
@@ -19,10 +19,6 @@ def preprocess(df1, df2):
     # Feature engeneering
     df_all = transformation (df_all, y_col = Y_COL)
 
-    # After feature engeneering
-    #"Drop rows with null y values"
-
-    df_all = drop_y_null(df_all, y_col = Y_COL)
     df_all.to_csv(args.out_path+"/processed.csv", index=False)
     return df_all
 
@@ -40,6 +36,15 @@ def df_train_test (df: pd.DataFrame, out_path: str, test_size: float, seed: int)
     # combine x and y again for trai and test
     train = pd.concat([X_train, y_train], axis=1)
     test = pd.concat([X_test, y_test], axis=1)
+    
+
+    # Drop rows with null y values in prediction set
+    test = drop_y_null(test, y_col = Y_COL)
+
+    # Replace missing values with 3.5 in train
+    train = replace_y_null(train, y_col = Y_COL)
+
+
     train.to_csv(out_path+"/train.csv", index=False)
     test.to_csv(out_path+"/test.csv", index=False)
 
