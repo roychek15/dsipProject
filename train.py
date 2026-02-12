@@ -51,6 +51,7 @@ if __name__ == "__main__":
 
     basic = BasicModel()
     basic_metrics = basic.train_and_evaluate(X_train, y_train, X_val, y_val, seed=args.seed)
+    basic.save_model(args.models_dir, args.results_dir)
 
     kmeans = KmeansCluster()
     best_kmeans_model, kmeans_metrics = kmeans.train_and_evaluate(X_train, y_train, X_val, y_val, seed=args.seed)

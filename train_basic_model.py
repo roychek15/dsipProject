@@ -24,7 +24,7 @@ class BasicModel:
                 })
 
         self._metrics = {
-            "model": "BasicModel(y-mean)",
+            "model": "BasicModel",
             "seed": int(seed),
             "n_train": int(len(X_train)),
             "n_val": int(len(X_val)),
