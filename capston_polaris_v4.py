@@ -1,16 +1,45 @@
+import os
 import numpy as np
 import pandas as pd
+import time
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
 from sklearn.model_selection import train_test_split
-
-
+from concurrent.futures import ThreadPoolExecutor, as_completed
+import json
+from openai import OpenAI, RateLimitError
 
 DEFAULT_DATASET1_LOC = 'https://raw.githubusercontent.com/sam-israel/general/refs/heads/master/listings%20NYC.csv'
 DEFAULT_DATASET2_LOC = 'https://raw.githubusercontent.com/sam-israel/general/refs/heads/master/listings%20LA.csv'
 DEFAULT_OUTPUT_LOC = "data"
-MISSING_VALUE_REPLACE = 4
 Y_COL = "review_scores_rating"
+WANDB_API_KEY = os.getenv('WANDB_API_KEY')
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+client = OpenAI(api_key=OPENAI_API_KEY)
+MODEL = "gpt-5-nano"
+BATCH_SIZE = 40
+MAX_WORKERS = 4
+SYSTEM_PROMPT = """
+    You are a strict travel-review scoring assistant.
+
+    Score the provided TEXT on these dimensions (integer 1-10):
+    1) center:
+       How central/convenient the location is.
+       1 = very far/inconvenient, 10 = very central.
+    2) quiet:
+       How quiet the place is.
+       1 = very noisy, 10 = very quiet.
+    3) facilities:
+       Quality/completeness of apartment facilities (e.g., kitchen, AC/heating, washer, Wi-Fi, parking, elevator, cleanliness-related setup).
+       1 = very poor/minimal facilities, 10 = excellent/well-equipped facilities.
+
+    Rules:
+    - Use only information implied by the text.
+    - If information is unclear, give a conservative mid score (5 or 6), not null.
+    - Return JSON only in this schema:
+        {"results":[{"id":<int>,"center":<int 1-10>,"quiet":<int 1-10>,"facilities":<int 1-10>}]}
+      No extra keys, no prose.
+""".strip()
 
 
 def clean_airbnb_schema(
@@ -111,8 +140,6 @@ def concat_datasets(df1, df2):
     return pd.concat([df1, df2], ignore_index=True, sort=False, axis=0)
 
 
-
-
 def drop_dup_rows(df):
     """Drop duplicate Rows"""
     return df.drop_duplicates()
@@ -136,13 +163,6 @@ def transformation(arr, y_col = Y_COL):
     y = arr.loc[:,y_col]
     X = arr.copy().drop(columns=y_col)
 
-# for i in X.select_dtypes("number").columns:
-#    X[i + "_isNA"] = X[i].isna() # Make an indicator column for NA values in numeric columns
-
-
-#    q_high = arr[i].quantile(0.995)
-#    X[i + "_isOutlier"] = (~X[i].isna()) &  (X[i] > q_high) # Make an indicator column high numeric values
-
   for i in X.select_dtypes(include=["string", "object"]).columns:  # Convert each text into its length
     X[i] = X[i].apply(lambda x: 0 if pd.isna(x) else len(x))
 
@@ -159,19 +179,11 @@ def transformation(arr, y_col = Y_COL):
     return pd.concat([X,y], axis=1)
 
 
-
 def replace_y_null(df, y_col = Y_COL):
     """ Replace missing values with constant value - extremely low value"""
-    #y = df.loc[:,Y_COL]
-    
-    #mask = y.isna()
-    
-    #df.loc[mask,:] = 3.5
-
     df[Y_COL].fillna(MISSING_VALUE_REPLACE, inplace=True)
 
     return df
-
 
 
 def drop_y_null(df, y_col = Y_COL):
@@ -183,4 +195,81 @@ def drop_y_null(df, y_col = Y_COL):
     return df.loc[mask,:]
 
 
+def chunked(seq, n):
+    for i in range(0, len(seq), n):
+        yield seq[i:i+n]
 
+
+def score_batch(items):
+    """
+    items: list of dicts [{"id": 12, "text": "..."}]
+    returns dict id -> scores
+    """
+    user_payload = {"items": items}
+
+    for _ in range(3):
+        try:
+            # Chat Completions style for gpt-3.5-turbo:
+            resp = client.chat.completions.create(
+                model=MODEL,
+                messages=[
+                    {"role": "system", "content": SYSTEM_PROMPT},
+                    {"role": "user", "content": json.dumps(user_payload, ensure_ascii=False)}
+                ],
+                response_format={"type": "json_object"},
+            )
+            raw = resp.choices[0].message.content
+            data = json.loads(raw)
+
+            out = {}
+            for r in data.get("results", []):
+                rid = int(r["id"])
+                out[rid] = {
+                    "center": max(1, min(10, int(r["center"]))),
+                    "quiet": max(1, min(10, int(r["quiet"]))),
+                    "facilities": max(1, min(10, int(r["facilities"]))),
+                }
+            return out
+
+        except RateLimitError:
+            time.sleep(1.5) # seconds
+    return {}
+
+def analyze_text(df) :
+    """ Analyze apartment descriptions and convert them into 3 numeric scores, using openAI """
+    df["text"] = df["description"].fillna("") + df["amenities"].fillna("") + df["neighborhood_overview"].fillna("")
+
+    # prepare rows
+    rows = [{"id": int(i), "text": (t if isinstance(t, str) else "")}
+            for i, t in zip(df.index, df["text"])]
+
+    # optional dedup cache by exact text to save calls
+    text_to_score = {}
+    id_to_text = {r["id"]: r["text"] for r in rows}
+
+    # score unique texts in parallel batches
+    futures = []
+    with ThreadPoolExecutor(max_workers=MAX_WORKERS) as ex:
+        for b in chunked(rows, BATCH_SIZE):
+            futures.append(ex.submit(score_batch, b))
+
+        for f in as_completed(futures):
+            res = f.result()
+            for id, score in res.items():
+                text_to_score[id_to_text[id]] = score
+
+    # map back to dataframe rows
+    centers, quiets, facs = [], [], []
+    for idx in df.index:
+        txt = id_to_text[int(idx)]
+        s = text_to_score.get(txt, None)
+        if s is None:
+            centers.append(pd.NA); quiets.append(pd.NA); facs.append(pd.NA)
+        else:
+            centers.append(s["center"]); quiets.append(s["quiet"]); facs.append(s["facilities"])
+
+    df["center"] = pd.Series(centers, index=df.index, dtype="Int64")
+    df["quiet"] = pd.Series(quiets, index=df.index, dtype="Int64")
+    df["facilities"] = pd.Series(facs, index=df.index, dtype="Int64")
+    df.drop(columns=["text"])
+    return df

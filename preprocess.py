@@ -13,8 +13,14 @@ def preprocess(df1, df2):
     # Drop duplicate rows
     df_all = drop_dup_rows(df_all)
 
+    # Drop rows with null y values
+    df_all = drop_y_null(df_all, y_col = Y_COL)
+
     # Drop redundant columns
     df_all = drop_redunt_cols(df_all)
+
+    # use genAI to analyze text fields
+    df_all = analyze_text(df_all)
 
     # Feature engeneering
     df_all = transformation (df_all, y_col = Y_COL)
@@ -36,14 +42,12 @@ def df_train_test (df: pd.DataFrame, out_path: str, test_size: float, seed: int)
     # combine x and y again for trai and test
     train = pd.concat([X_train, y_train], axis=1)
     test = pd.concat([X_test, y_test], axis=1)
-    
 
     # Drop rows with null y values in prediction set
-    test = drop_y_null(test, y_col = Y_COL)
+    #test = drop_y_null(test, y_col = Y_COL)
 
     # Replace missing values with 3.5 in train
-    train = replace_y_null(train, y_col = Y_COL)
-
+    #train = replace_y_null(train, y_col = Y_COL)
 
     train.to_csv(out_path+"/train.csv", index=False)
     test.to_csv(out_path+"/test.csv", index=False)

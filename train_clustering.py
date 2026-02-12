@@ -7,7 +7,6 @@ from sklearn.metrics import silhouette_score
 import joblib
 import pandas as pd
 from sklearn.impute import SimpleImputer
-os.environ['WANDB_API_KEY'] = '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'
 
 def load_data(csv_path: str) :
     train = pd.read_csv(csv_path+"/train.csv")
