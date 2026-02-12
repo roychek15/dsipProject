@@ -1,86 +1,65 @@
-import argparse
-import os
 import wandb
-from capston_polaris_v4 import *
-from sklearn.cluster import KMeans
-from sklearn.metrics import silhouette_score
 import joblib
-import pandas as pd
+from capston_polaris_v4 import *
+from datetime import datetime
+from sklearn.cluster import KMeans
 from sklearn.impute import SimpleImputer
-
-def load_data(csv_path: str) :
-    train = pd.read_csv(csv_path+"/train.csv")
-    test = pd.read_csv(csv_path+"/test.csv")
-    X_train = train.drop(columns=[Y_COL])
-    y_train = train[Y_COL]
-    X_test = test.drop(columns=[Y_COL])
-    y_test = test[Y_COL]
-    return X_train, y_train, X_test, y_test
-
-def ensure_dir(path: str) -> None:
-    if path and not os.path.exists(path):
-        os.makedirs(path, exist_ok=True)
-
-def train_and_evaluate(X_train: pd.DataFrame, y_train: pd.DataFrame,
-                       X_test: pd.DataFrame, y_test: pd.DataFrame):
-    imputer = SimpleImputer(strategy='median')
-    X_train = pd.DataFrame(imputer.fit_transform(X_train), columns=X_train.columns)
-
-    best_inertia = 0
-    for k in [2, 3, 4, 5, 6, 8]:
-        with wandb.init(project="kmeans-comparison", config={"k": k}):
-            km = KMeans(n_clusters=k, n_init="auto")
-            km.fit(X_train)
-
-            # Calculate scores
-            inertia = km.inertia_
-            if (best_inertia == 0 or inertia < best_inertia):
-                best_inertia = inertia
-                best_k = k
-                best_model = km
-            sil_score = silhouette_score(X_train, km.labels_)
-
-            # Log everything to compare in the dashboard
-            wandb.log({
-                "n_clusters": k,
-                "inertia": inertia,
-                "silhouette_score": sil_score
-            })
-
-    return best_model
+from sklearn.metrics import mean_squared_error, r2_score
 
 
-def save_model(model, model_out: str):
-    ensure_dir(os.path.dirname(model_out) or ".")
-    joblib.dump(model, model_out)
+class KmeansCluster:
+    def train_and_evaluate(self, X_train: pd.DataFrame, y_train: pd.DataFrame,
+                           X_val: pd.DataFrame, y_val: pd.DataFrame, seed: int):
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Train RandomForest on processed bike dataset")
-    parser.add_argument(
-        "--csv-path",
-        type=str,
-        default="data",
-        help="Path to processed CSV (output of preprocess.py)",
-    )
-    parser.add_argument(
-        "--model-out",
-        type=str,
-        default="models/kmeans_model.joblib",
-        help="Where to save the trained model",
-    )
-    parser.add_argument(
-        "--results-dir",
-        type=str,
-        default="results/kmeans",
-        help="Directory to save predictions and metrics",
-    )
+        best_mse = float("inf")
 
-    args = parser.parse_args()
+        imputer = SimpleImputer(strategy="median")  # or "mean"
+        X_train_imp = imputer.fit_transform(X_train)
+        X_val_imp = imputer.transform(X_val)
 
-    X_train, y_train, X_test, y_test = load_data(args.csv_path)
-    model = train_and_evaluate(X_train, y_train, X_test, y_test)
+        for k in range(10, 21):
+            with wandb.init(project="kmeans-comparison", config={"k": k}):
+                km = KMeans(n_clusters=k, random_state=seed, n_init=10)
+                train_clusters = km.fit_predict(X_train_imp)
 
-    save_model(model=model, model_out=args.model_out)
+                # cluster -> mean(y_train)
+                cluster_mean = np.array([y_train[train_clusters == j].mean() for j in range(k)])
 
-    print("Saved best kmeans model to: ", args.model_out)
-    print(f"best model is when k={model.n_clusters}")
+                # predict on validation
+                val_clusters = km.predict(X_val_imp)
+                y_val_pred = np.array([cluster_mean[c] for c in val_clusters])
+
+                mse = mean_squared_error(y_val, y_val_pred)
+                if mse < best_mse:
+                    best_mse = mse
+                    self._best_model = km
+                    best_y_predict = y_val_pred
+
+                # Log everything to compare in the dashboard
+                wandb.log({
+                    "n_clusters": k,
+                    "val_rmse": mse,
+                    "inertia": km.inertia_
+                })
+
+        self._metrics = {
+            "model": "Kmeans",
+            "seed": int(seed),
+            "n_clusters": int(self._best_model.n_clusters),
+            "n_train": int(len(X_train)),
+            "n_val": int(len(X_val)),
+            "val_rmse": float(np.sqrt(best_mse)),
+            "val_r2": float(r2_score(y_val, best_y_predict)),
+        }
+        return self._best_model, self._metrics
+
+    def save_model(self, model_dir: str, results_dir: str):
+        model_path = os.path.join(model_dir, "kmeans.joblib")
+        joblib.dump(self._best_model, model_path, compress=("lz4", 3))
+
+        metrics_path = os.path.join(results_dir, "kmeans.json")
+        metrics_with_time = dict(self._metrics)
+        metrics_with_time["run_timestamp"] = datetime.utcnow().isoformat() + "Z"
+
+        with open(metrics_path, "w") as f:
+            json.dump(metrics_with_time, f, indent=2)

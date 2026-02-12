@@ -1,7 +1,10 @@
 import argparse
+
+from pandas import DataFrame
+
 from capston_polaris_v4 import *
 
-def preprocess(df1, df2):
+def preprocess(df1:DataFrame, df2:DataFrame, use_genAI: bool):
     
     # Correct data types
     clean_airbnb_schema(df1, inplace=True)
@@ -20,9 +23,10 @@ def preprocess(df1, df2):
     df_all = drop_redunt_cols(df_all)
 
     # use genAI to analyze text fields
-    df_all = analyze_text(df_all)
+    if (use_genAI) :
+        df_all = analyze_text(df_all)
 
-    # Feature engeneering
+    # Feature engineering
     df_all = transformation (df_all, y_col = Y_COL)
 
     df_all.to_csv(args.out_path+"/processed.csv", index=False)
@@ -43,12 +47,6 @@ def df_train_test (df: pd.DataFrame, out_path: str, test_size: float, seed: int)
     train = pd.concat([X_train, y_train], axis=1)
     test = pd.concat([X_test, y_test], axis=1)
 
-    # Drop rows with null y values in prediction set
-    #test = drop_y_null(test, y_col = Y_COL)
-
-    # Replace missing values with 3.5 in train
-    #train = replace_y_null(train, y_col = Y_COL)
-
     train.to_csv(out_path+"/train.csv", index=False)
     test.to_csv(out_path+"/test.csv", index=False)
 
@@ -59,13 +57,14 @@ if __name__ == "__main__":
     parser.add_argument("--out-path", type=str, default=DEFAULT_OUTPUT_LOC, help="Path to save processed CSV")
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--test-size", type=float, default=0.2)
+    parser.add_argument("--use-genAI", type=bool, default=False)
 
     args = parser.parse_args()
 
     df1 = pd.read_csv(args.csv_raw_path1)
     df2 = pd.read_csv(args.csv_raw_path2)
 
-    df_processed = preprocess(df1, df2)
+    df_processed = preprocess(df1, df2, args.use_genAI)
     df_train_test(df_processed, args.out_path, args.test_size, args.seed)
 
     print(f"Saved processed, train and test CSVs to: {args.out_path}")

@@ -12,7 +12,10 @@ from sklearn.impute import SimpleImputer
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 from sklearn.pipeline import Pipeline
 from sklearn.model_selection import KFold, GridSearchCV
-os.environ['WANDB_API_KEY'] = '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'
+
+from train_clustering import KmeansCluster
+from train_random_forest import RandomForest
+from train_basic_model import BasicModel
 
 def load_data(csv_path: str) :
     train = pd.read_csv(csv_path+"/train.csv")
@@ -23,170 +26,40 @@ def load_data(csv_path: str) :
     y_test = test[Y_COL]
     return X_train, y_train, X_test, y_test
 
-param_grid = {                      # The below are the best params we have found
-    "model__n_estimators": [500],   #[500,1000,1500],
-    "model__max_depth": [10,12],    #[12,14,16]
-    "model__min_samples_leaf":[5],
-    "model__max_features":[10],
-    "model__max_samples" : [0.85]
-}
-
-
-def build_model(seed: int, n_estimators=1, max_depth=1, min_samples_leaf=1, max_features=1, max_samples=1) -> Pipeline:
-    """
-    Production-friendly baseline:
-    median imputation -> RandomForestRegressor
-    """
-    rf = RandomForestRegressor(
-        n_estimators=n_estimators,
-        random_state=seed,
-        max_depth = max_depth,
-        min_samples_leaf=min_samples_leaf,
-        max_features=max_features,
-        max_samples=max_samples,
-        n_jobs=-1,
-    )
-
-    pipe = Pipeline(
-        steps=[
-            ("imputer", SimpleImputer(strategy="constant", fill_value = -1)),
-            ("model", rf),
-        ]
-    )
-    return pipe
-
 
 def ensure_dir(path: str) -> None:
     if path and not os.path.exists(path):
         os.makedirs(path, exist_ok=True)
 
-
-def train_and_evaluate(X_train: pd.DataFrame, y_train: pd.DataFrame, X_test: pd.DataFrame,
-                       y_test: pd.DataFrame, seed: int, n_estimators: int):
-
-    search_model=build_model(seed=seed)
-
-    search = GridSearchCV(search_model, param_grid, cv=5, scoring="neg_root_mean_squared_error")
-
-    search.fit(X_train, y_train)
-
-    best_model = search.best_estimator_
-#    print(best_model.get_params())
-
-#    for n in range(100, n_estimators+1, 100):
-#            model = build_model(seed=seed, n_estimators=n)
-#            model.fit(X_train, y_train)
-
-    with wandb.init(project="tree-comparison"):#, config={"n_estimators"}):
-
-
-      y_pred_train = best_model.predict(X_train)
-      y_pred_test = best_model.predict(X_test)
-
-
-      wandb.log({"n_estimators": search.best_params_["model__n_estimators"], "max_depth": search.best_params_["model__max_depth"], 
-		       "min_samples_leaf":search.best_params_["model__min_samples_leaf"], "max_features":search.best_params_["model__max_features"],
-		       "max_samples":search.best_params_["model__max_samples"],
-                       "rmse_train": float(np.sqrt(mean_squared_error(y_train, y_pred_train))),
-                       "rmse_test": float(np.sqrt(mean_squared_error(y_test, y_pred_test))),
-                       "mae_train": float(mean_absolute_error(y_train, y_pred_train)),
-                       "mae_test": float(mean_absolute_error(y_test, y_pred_test))})
-
-    metrics = {
-        "model": "RandomForestRegressor",
-        "seed": int(seed),
-        "n_estimators": int(best_model.get_params()["model__n_estimators"]),
-        "max_depth": int(best_model.get_params()["model__max_depth"]),
-        "min_samples_leaf":best_model.get_params()["model__min_samples_leaf"], "max_features":best_model.get_params()["model__max_features"],
-        "max_samples":best_model.get_params()["model__max_samples"],
-        "n_train": int(len(X_train)),
-        "n_test": int(len(X_test)),
-        "rmse_train": float(np.sqrt(mean_squared_error(y_train, y_pred_train))),
-        "rmse_test": float(np.sqrt(mean_squared_error(y_test, y_pred_test))),
-        "mae_train": float(mean_absolute_error(y_train, y_pred_train)),
-        "mae_test": float(mean_absolute_error(y_test, y_pred_test)),
-        "r2_train": float(r2_score(y_train, y_pred_train)),
-        "r2_test": float(r2_score(y_test, y_pred_test)),
-    }
-
-    preds_train = pd.DataFrame({"y_true": y_train, "y_pred": y_pred_train})
-    preds_test = pd.DataFrame({"y_true": y_test, "y_pred": y_pred_test})
-
-    return best_model, metrics, preds_train, preds_test
-
-
-def save_artifacts(
-    model,
-    metrics: dict,
-    preds_train: pd.DataFrame,
-    preds_test: pd.DataFrame,
-    model_out: str,
-    results_dir: str,
-):
-    ensure_dir(os.path.dirname(model_out) or ".")
-    ensure_dir(results_dir)
-
-    model.set_params(model__n_jobs=1)
-    joblib.dump(model, model_out, compress=("lz4", 3)) 
-
-    preds_train_path = os.path.join(results_dir, "pred_train.csv")
-    preds_test_path = os.path.join(results_dir, "pred_test.csv")
-    metrics_path = os.path.join(results_dir, "metrics.json")
-
-    preds_train.to_csv(preds_train_path, index=False)
-    preds_test.to_csv(preds_test_path, index=False)
-
-    metrics_with_time = dict(metrics)
-    metrics_with_time["run_timestamp"] = datetime.utcnow().isoformat() + "Z"
-
-    with open(metrics_path, "w") as f:
-        json.dump(metrics_with_time, f, indent=2)
-
-    return preds_train_path, preds_test_path, metrics_path
-
-
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Train RandomForest on processed airbnb dataset")
-    parser.add_argument(
-        "--csv-path",
-        type=str,
-        default="data",
-        help="Path to processed CSV (output of preprocess.py)",
-    )
+    parser.add_argument("--csv-path", type=str, default="data", help="Path to processed CSV (output of preprocess.py)")
     parser.add_argument("--n-estimators", type=int, default=500)
     parser.add_argument("--seed", type=int, default=42)
-    parser.add_argument(
-        "--model-out",
-        type=str,
-        default="models/model.joblib",
-        help="Where to save the trained model",
-    )
-    parser.add_argument(
-        "--results-dir",
-        type=str,
-        default="results",
-        help="Directory to save predictions and metrics",
-    )
+    parser.add_argument("--validation-size", type=float, default=0.2)
+    parser.add_argument("--models-dir", type=str, default="models", help="Where to save the trained model")
+    parser.add_argument("--results-dir", type=str, default="results", help="Directory to save predictions and metrics")
 
     args = parser.parse_args()
 
-    # train the tree
+    ensure_dir(args.models_dir)
+    ensure_dir(args.results_dir)
+
+    # split the dataset
     X_train, y_train, X_test, y_test = load_data(args.csv_path)
-    model, metrics, preds_train, preds_test = train_and_evaluate(
-        X_train, y_train, X_test, y_test, seed=args.seed, n_estimators=args.n_estimators
-    )
+    X_train, X_val, y_train, y_val = train_test_split(X_train, y_train, test_size=args.validation_size, random_state=args.seed)
 
-    preds_train_path, preds_test_path, metrics_path = save_artifacts(
-        model=model,
-        metrics=metrics,
-        preds_train=preds_train,
-        preds_test=preds_test,
-        model_out=args.model_out,
-        results_dir=args.results_dir,
-    )
+    basic = BasicModel()
+    basic_metrics = basic.train_and_evaluate(X_train, y_train, X_val, y_val, seed=args.seed)
 
-    print("Saved model:", args.model_out)
-    print("Saved predictions:", preds_train_path)
-    print("Saved predictions:", preds_test_path)
-    print("Saved metrics:", metrics_path)
-    print("Metrics:", metrics)
+    kmeans = KmeansCluster()
+    best_kmeans_model, kmeans_metrics = kmeans.train_and_evaluate(X_train, y_train, X_val, y_val, seed=args.seed)
+    kmeans.save_model(args.models_dir, args.results_dir)
+
+    rnd_forest = RandomForest()
+    best_rnd_forest_model, rnd_frst_metrics = rnd_forest.train_and_evaluate(X_train, y_train, X_val, y_val, seed=args.seed)
+    rnd_forest.save_model(args.models_dir, args.results_dir)
+
+    print("basic_model - rmse:", basic_metrics.get("val_rmse"))
+    print(f"best_kmeans_model - k: {best_kmeans_model.n_clusters}, rmse: {kmeans_metrics.get("val_rmse")}")
+    print("best_rnd_forest_model - rmse:", rnd_frst_metrics.get("val_rmse"))
