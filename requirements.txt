@@ -20,3 +20,4 @@ threadpoolctl==3.6.0
 tzdata==2025.3
 visidata==3.3
 wandb
+openai

@@ -14,9 +14,9 @@ DEFAULT_DATASET2_LOC = 'https://raw.githubusercontent.com/sam-israel/general/ref
 DEFAULT_OUTPUT_LOC = "data"
 Y_COL = "review_scores_rating"
 WANDB_API_KEY = os.getenv('WANDB_API_KEY')
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-client = OpenAI(api_key=OPENAI_API_KEY)
-MODEL = "gpt-5-nano"
+NEBIUS_API_KEY = os.getenv("NEBIUS_API_KEY")
+MODEL="openai/gpt-oss-20b"   #meta-llama/Meta-Llama-3.1-8B-Instruct-fast"
+client = OpenAI(api_key=NEBIUS_API_KEY, base_url = "https://api.tokenfactory.nebius.com/v1")
 BATCH_SIZE = 40
 MAX_WORKERS = 4
 SYSTEM_PROMPT = """

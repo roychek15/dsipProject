@@ -9,7 +9,10 @@ def preprocess(df1:DataFrame, df2:DataFrame, use_genAI: bool):
     # Correct data types
     clean_airbnb_schema(df1, inplace=True)
     clean_airbnb_schema(df2, inplace=True);
+    
+    print("Cleaned")
 
+   
     # Concatenate the two datasets
     df_all = concat_datasets(df1, df2)
     
@@ -22,12 +25,17 @@ def preprocess(df1:DataFrame, df2:DataFrame, use_genAI: bool):
     # Drop redundant columns
     df_all = drop_redunt_cols(df_all)
 
+    print("Dropped unnecesssary")
+     
     # use genAI to analyze text fields
-    if (use_genAI) :
-        df_all = analyze_text(df_all)
-
+    if use_genAI:
+      print("Analyzing with ai...")  
+      df_all = analyze_text(df_all)
+    
     # Feature engineering
+    print("Feature transformation")
     df_all = transformation (df_all, y_col = Y_COL)
+  
 
     df_all.to_csv(args.out_path+"/processed.csv", index=False)
     return df_all
@@ -57,7 +65,8 @@ if __name__ == "__main__":
     parser.add_argument("--out-path", type=str, default=DEFAULT_OUTPUT_LOC, help="Path to save processed CSV")
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--test-size", type=float, default=0.2)
-    parser.add_argument("--use-genAI", type=bool, default=False)
+    parser.add_argument("--use-genAI", type=lambda x: x.lower() == "true")
+
 
     args = parser.parse_args()
 

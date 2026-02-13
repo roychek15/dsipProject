@@ -46,7 +46,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--model-path",
         type=str,
-        default="models/model.joblib",
+        default="models/random_forest.joblib",
         help="Path to saved model (output of train.py)",
     )
     parser.add_argument(
