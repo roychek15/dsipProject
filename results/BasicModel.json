@@ -1,0 +1,10 @@
+{
+  "model": "BasicModel",
+  "seed": 42,
+  "n_train": 37316,
+  "n_val": 9330,
+  "y_train_mean": 4,
+  "val_rmse": 0.4372202309119265,
+  "val_r2": -0.00010931626565691133,
+  "run_timestamp": "2026-02-14T19:11:42.028433Z"
+}
