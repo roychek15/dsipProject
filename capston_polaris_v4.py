@@ -2,9 +2,8 @@ import os
 import numpy as np
 import pandas as pd
 import time
-import matplotlib.pyplot as plt
-import matplotlib.colors as mcolors
-from sklearn.model_selection import train_test_split
+from sentence_transformers import SentenceTransformer
+from sklearn.metrics.pairwise import cosine_similarity
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import json
 from openai import OpenAI, RateLimitError
@@ -40,7 +39,13 @@ SYSTEM_PROMPT = """
         {"results":[{"id":<int>,"center":<int 1-10>,"quiet":<int 1-10>,"facilities":<int 1-10>}]}
       No extra keys, no prose.
 """.strip()
-
+CENTRAL_PROTOTYPES = [
+    "in the city center",
+    "in the heart of downtown",
+    "easy access to main attractions",
+    "walking distance to major city landmarks",
+    "prime location"
+]
 
 def clean_airbnb_schema(
     df: pd.DataFrame,
@@ -179,13 +184,6 @@ def transformation(arr, y_col = Y_COL):
     return pd.concat([X,y], axis=1)
 
 
-def replace_y_null(df, y_col = Y_COL):
-    """ Replace missing values with constant value - extremely low value"""
-    df[Y_COL].fillna(MISSING_VALUE_REPLACE, inplace=True)
-
-    return df
-
-
 def drop_y_null(df, y_col = Y_COL):
     """Drop rows with null y values"""
     y = df.loc[:,Y_COL]
@@ -198,6 +196,38 @@ def drop_y_null(df, y_col = Y_COL):
 def chunked(seq, n):
     for i in range(0, len(seq), n):
         yield seq[i:i+n]
+
+def calc_central_score(df):
+    """
+    calc central location score based on cousine similarity between the apt description and some "central" phrases
+    """
+    model = SentenceTransformer("all-MiniLM-L6-v2")
+    text_list = df["description"].fillna("").astype(str).tolist()
+    all_emb = []
+    chunk_size = 500
+    for i in range(0, len(text_list), chunk_size):
+        to = i + chunk_size
+        if (to > len(text_list)):
+            to = len(text_list)
+        chunk = text_list[i:to]
+        emb = model.encode(
+            chunk,
+            batch_size=64,
+            normalize_embeddings=True,
+            show_progress_bar=False
+        )
+        all_emb.append(emb)
+        print (to)
+
+    emb_texts = np.vstack(all_emb)  # shape: (50000, dim)
+    emb_central = model.encode(CENTRAL_PROTOTYPES, normalize_embeddings=True)
+
+    # calc cosine similarity in [-1, 1] and grade 1-10
+    S = cosine_similarity(emb_texts, emb_central)
+    sim = S.max(axis=1)
+    df["central"] = np.clip(1 + 9 * ((sim + 1) / 2), 1, 10).round(2)
+#    print (print(df.loc[:20, ["description", "central"]]))
+    return df
 
 
 def score_batch(items):

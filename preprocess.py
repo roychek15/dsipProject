@@ -9,10 +9,8 @@ def preprocess(df1:DataFrame, df2:DataFrame, use_genAI: bool):
     # Correct data types
     clean_airbnb_schema(df1, inplace=True)
     clean_airbnb_schema(df2, inplace=True);
-    
     print("Cleaned")
 
-   
     # Concatenate the two datasets
     df_all = concat_datasets(df1, df2)
     
@@ -24,18 +22,18 @@ def preprocess(df1:DataFrame, df2:DataFrame, use_genAI: bool):
 
     # Drop redundant columns
     df_all = drop_redunt_cols(df_all)
-
-    print("Dropped unnecesssary")
+    print("Dropped unnecessary")
      
     # use genAI to analyze text fields
     if use_genAI:
-      print("Analyzing with ai...")  
-      df_all = analyze_text(df_all)
-    
+        print("Analyzing with ai...")
+        df_all = analyze_text(df_all)
+    else:
+        df_all = calc_central_score(df_all)
+
     # Feature engineering
     print("Feature transformation")
     df_all = transformation (df_all, y_col = Y_COL)
-  
 
     df_all.to_csv(args.out_path+"/processed.csv", index=False)
     return df_all
