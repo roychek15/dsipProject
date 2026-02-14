@@ -2,10 +2,12 @@ import os
 import numpy as np
 import pandas as pd
 import time
+import json
+import matplotlib.pyplot as plt
 from sentence_transformers import SentenceTransformer
 from sklearn.metrics.pairwise import cosine_similarity
 from concurrent.futures import ThreadPoolExecutor, as_completed
-import json
+from sklearn.model_selection import train_test_split
 from openai import OpenAI, RateLimitError
 
 DEFAULT_DATASET1_LOC = 'https://raw.githubusercontent.com/sam-israel/general/refs/heads/master/listings%20NYC.csv'
@@ -217,7 +219,7 @@ def calc_central_score(df):
             show_progress_bar=False
         )
         all_emb.append(emb)
-        print (to)
+#        print (to)
 
     emb_texts = np.vstack(all_emb)  # shape: (50000, dim)
     emb_central = model.encode(CENTRAL_PROTOTYPES, normalize_embeddings=True)

@@ -45,9 +45,7 @@ def df_train_test (df: pd.DataFrame, out_path: str, test_size: float, seed: int)
     X = df.drop(columns=[Y_COL])
     y = df[Y_COL]
 
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=test_size, random_state=seed
-    )
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size, random_state=seed)
 
     # combine x and y again for trai and test
     train = pd.concat([X_train, y_train], axis=1)
