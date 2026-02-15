@@ -7,7 +7,7 @@ def run_step(cmd):
     subprocess.run(cmd, check=True)
 
 if __name__ == "__main__":
-    run_step([sys.executable, "preprocess.py"])
+    run_step([sys.executable, "preprocess.py", "--csv-raw-path1", "default", "--csv-raw-path2", "default", "--csv-raw-path3", "default"])
     run_step([sys.executable, "train.py"])
     run_step([sys.executable, "predict.py"])
     print("\nDone.")

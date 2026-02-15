@@ -4,20 +4,22 @@ import pandas as pd
 import time
 import json
 import matplotlib.pyplot as plt
+from pandas import DataFrame
 from sentence_transformers import SentenceTransformer
 from sklearn.metrics.pairwise import cosine_similarity
+from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
+from sklearn.preprocessing import OrdinalEncoder
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from sklearn.model_selection import train_test_split
 from openai import OpenAI, RateLimitError
 
 DEFAULT_DATASET1_LOC = 'https://raw.githubusercontent.com/sam-israel/general/refs/heads/master/listings%20NYC.csv'
 DEFAULT_DATASET2_LOC = 'https://raw.githubusercontent.com/sam-israel/general/refs/heads/master/listings%20LA.csv'
+DEFAULT_DATASET3_LOC = 'https://github.com/sam-israel/general/raw/refs/heads/master/TEST_SET_newcity1.csv'
 DEFAULT_OUTPUT_LOC = "data"
-Y_COL = "review_scores_rating"
-WANDB_API_KEY = os.getenv('WANDB_API_KEY')
-NEBIUS_API_KEY = os.getenv("NEBIUS_API_KEY")
+WANDB_API_KEY = os.getenv('WANDB_API_KEY', default="")
+NEBIUS_API_KEY = os.getenv("NEBIUS_API_KEY", default="")
 MODEL="openai/gpt-oss-20b"   #meta-llama/Meta-Llama-3.1-8B-Instruct-fast"
-client = OpenAI(api_key=NEBIUS_API_KEY, base_url = "https://api.tokenfactory.nebius.com/v1")
 BATCH_SIZE = 40
 MAX_WORKERS = 4
 SYSTEM_PROMPT = """
@@ -48,6 +50,55 @@ CENTRAL_PROTOTYPES = [
     "walking distance to major city landmarks",
     "prime location"
 ]
+
+
+
+def compute_metrics(y_true: np.ndarray, y_pred: np.ndarray) -> dict:
+    rmse = float(np.sqrt(mean_squared_error(y_true, y_pred)))
+    mae = float(mean_absolute_error(y_true, y_pred))
+    r2 = float(r2_score(y_true, y_pred))
+    return {"rmse": rmse, "mae": mae, "r2": r2, "n": int(len(y_true))}
+
+
+
+def preprocess(df:DataFrame, y_col, drop_duplicate_rows=True, use_genAI=False, verbose=True):
+    if verbose:
+      print(f"Initial rows number {df.shape[0]}")
+
+    # Correct data types
+    clean_airbnb_schema(df, inplace=True)
+
+    if verbose:
+      print(f"After correcting data types: {df.shape[0]}")
+    
+    # Drop duplicate rows
+    if drop_duplicate_rows:
+      df= drop_dup_rows(df)
+      if verbose:
+        print(f"After cleaning duplicate rows : {df.shape[0]}")
+
+    # Drop rows with null y values
+    if y_col is not None:
+      df = drop_y_null(df, y_col )
+
+    if verbose:
+      print(f"After dropping rows with null y values : {df.shape[0]}")
+
+    # Drop redundant columns
+    df = drop_redunt_cols(df)
+
+    # use genAI to analyze text fields
+    if use_genAI:
+      print("Analyzing with ai...")  
+      df = analyze_text(df)
+    else:
+      df = calc_central_score(df)
+    
+    # Feature engineering
+    print("Feature transformation")
+    df = transformation (df, y_col )
+
+    return df
 
 def clean_airbnb_schema(
     df: pd.DataFrame,
@@ -161,7 +212,7 @@ def drop_redunt_cols(df):
 
     return df_copy
 
-def transformation(arr, y_col = Y_COL):
+def transformation(arr, y_col):
   """Feature engeneering"""
 
   if y_col is None:
@@ -186,9 +237,9 @@ def transformation(arr, y_col = Y_COL):
     return pd.concat([X,y], axis=1)
 
 
-def drop_y_null(df, y_col = Y_COL):
+def drop_y_null(df, y_col ):
     """Drop rows with null y values"""
-    y = df.loc[:,Y_COL]
+    y = df.loc[:,y_col]
     
     mask = y.notna()
     
@@ -238,6 +289,9 @@ def score_batch(items):
     returns dict id -> scores
     """
     user_payload = {"items": items}
+
+    client = OpenAI(api_key=NEBIUS_API_KEY, base_url = "https://api.tokenfactory.nebius.com/v1")
+
 
     for _ in range(3):
         try:

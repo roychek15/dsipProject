@@ -1,51 +1,20 @@
 import argparse
 
-from pandas import DataFrame
-
 from capston_polaris_v4 import *
 
-def preprocess(df1:DataFrame, df2:DataFrame, use_genAI: bool):
-    
-    # Correct data types
-    clean_airbnb_schema(df1, inplace=True)
-    clean_airbnb_schema(df2, inplace=True);
-    print("Cleaned")
+TARGET_COL = "review_scores_rating"
 
-    # Concatenate the two datasets
-    df_all = concat_datasets(df1, df2)
-    
-    # Drop duplicate rows
-    df_all = drop_dup_rows(df_all)
-
-    # Drop rows with null y values
-    df_all = drop_y_null(df_all, y_col = Y_COL)
-
-    # Drop redundant columns
-    df_all = drop_redunt_cols(df_all)
-    print("Dropped unnecessary")
-     
-    # use genAI to analyze text fields
-    if use_genAI:
-        print("Analyzing with ai...")
-        df_all = analyze_text(df_all)
-    else:
-        df_all = calc_central_score(df_all)
-
-    # Feature engineering
-    print("Feature transformation")
-    df_all = transformation (df_all, y_col = Y_COL)
-
-    df_all.to_csv(args.out_path+"/processed.csv", index=False)
-    return df_all
 
 def df_train_test (df: pd.DataFrame, out_path: str, test_size: float, seed: int) :
-    if Y_COL not in df.columns:
-        raise ValueError(f"Target column '{Y_COL}' not found. Columns: {list(df.columns)}")
+    if TARGET_COL not in df.columns:
+        raise ValueError(f"Target column '{TARGET_COL}' not found. Columns: {list(df.columns)}")
 
-    X = df.drop(columns=[Y_COL])
-    y = df[Y_COL]
+    X = df.drop(columns=[TARGET_COL])
+    y = df[TARGET_COL]
 
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size, random_state=seed)
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=test_size, random_state=seed
+    )
 
     # combine x and y again for trai and test
     train = pd.concat([X_train, y_train], axis=1)
@@ -56,20 +25,49 @@ def df_train_test (df: pd.DataFrame, out_path: str, test_size: float, seed: int)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Preprocess raw CSV")
-    parser.add_argument("--csv-raw-path1", type=str, required=False, help="Path to first raw input CSV", default=DEFAULT_DATASET1_LOC)
-    parser.add_argument("--csv-raw-path2", type=str, required=False, help="Path to second raw input CSV", default=DEFAULT_DATASET2_LOC)
+    parser.add_argument("--csv-raw-path1", type=str, required=True, help='Type "default" for default dataset')
+    parser.add_argument("--csv-raw-path2", type=str, required=False, help='Path to second raw input CSV, type "default" for default dataset')
+    parser.add_argument("--csv-raw-path3", type=str, required=False, help='Path to third raw input CSV,type "default" for default dataset')
     parser.add_argument("--out-path", type=str, default=DEFAULT_OUTPUT_LOC, help="Path to save processed CSV")
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--test-size", type=float, default=0.2)
-    parser.add_argument("--use-genAI", type=lambda x: x.lower() == "true")
-
+    parser.add_argument("--use-genAI", required=False,type=lambda x: x.lower() == "true")
 
     args = parser.parse_args()
 
-    df1 = pd.read_csv(args.csv_raw_path1)
-    df2 = pd.read_csv(args.csv_raw_path2)
+    if args.csv_raw_path1 == "default":
+      df = pd.read_csv(DEFAULT_DATASET1_LOC)
+    else:
+      df = pd.read_csv(args.csv_raw_path1)
 
-    df_processed = preprocess(df1, df2, args.use_genAI)
+    df = drop_y_null(df, TARGET_COL )     # Drop rows with null y values
+    df_processed = preprocess(df, args.use_genAI)
+
+    if args.csv_raw_path2 == "default":
+      df2 = pd.read_csv(DEFAULT_DATASET2_LOC)
+      df2 = drop_y_null(df2, TARGET_COL )     # Drop rows with null y values
+      df2 = preprocess(df2,  args.use_genAI)
+      df_processed = pd.concat([df_processed, df2], axis=0)
+    elif args.csv_raw_path2 is not None:
+      df2 = pd.read_csv(args.csv_raw_path1)
+      df2 = drop_y_null(df2, TARGET_COL )     # Drop rows with null y values
+      df2 = preprocess(df2,  args.use_genAI)
+      df_processed = pd.concat([df_processed, df2], axis=0)
+
+    if args.csv_raw_path3 == "default":
+      df3 = pd.read_csv(DEFAULT_DATASET3_LOC)
+      df3 = drop_y_null(df3, TARGET_COL )     # Drop rows with null y values
+      df3 = preprocess(df3,  args.use_genAI)
+      df_processed = pd.concat([df_processed, df3], axis=0)
+    elif args.csv_raw_path3 is not None:
+      df3 = pd.read_csv(args.csv_raw_path1)
+      df3 = drop_y_null(df3, TARGET_COL )     # Drop rows with null y values
+      df3 = preprocess(df3,  args.use_genAI)
+      df_processed = pd.concat([df_processed, df3], axis=0)
+
+    df_processed.to_csv(args.out_path+"/processed.csv", index=False)
+
+    
     df_train_test(df_processed, args.out_path, args.test_size, args.seed)
 
     print(f"Saved processed, train and test CSVs to: {args.out_path}")

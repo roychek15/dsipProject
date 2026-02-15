@@ -17,13 +17,16 @@ from train_clustering import KmeansCluster
 from train_random_forest import RandomForest
 from train_basic_model import BasicModel
 
+TARGET_COL = "review_scores_rating"
+
+
 def load_data(csv_path: str) :
     train = pd.read_csv(csv_path+"/train.csv")
     test = pd.read_csv(csv_path+"/test.csv")
-    X_train = train.drop(columns=[Y_COL])
-    y_train = train[Y_COL]
-    X_test = test.drop(columns=[Y_COL])
-    y_test = test[Y_COL]
+    X_train = train.drop(columns=[TARGET_COL])
+    y_train = train[TARGET_COL]
+    X_test = test.drop(columns=[TARGET_COL])
+    y_test = test[TARGET_COL]
     return X_train, y_train, X_test, y_test
 
 

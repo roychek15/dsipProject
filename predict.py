@@ -2,7 +2,7 @@ import argparse
 import os
 import joblib
 import pandas as pd
-
+from capston_polaris_v4 import  compute_metrics
 
 TARGET_COL = "review_scores_rating"
 
@@ -29,14 +29,9 @@ def predict(model, df: pd.DataFrame) -> pd.DataFrame:
     """
     df = df.copy()
 
-    X = df.drop(columns=[TARGET_COL]) if TARGET_COL in df.columns else df
-    y_pred = model.predict(X)
+    y_pred = model.predict(df)
 
     out = pd.DataFrame({"y_pred": y_pred})
-
-    # Optional: keep y_true alongside predictions if available
-    if TARGET_COL in df.columns:
-        out.insert(0, "y_true", df[TARGET_COL].values)
 
     return out
 
@@ -67,10 +62,25 @@ if __name__ == "__main__":
     model = load_model(args.model_path)
     df = load_data(args.csv_path)
 
-    preds = predict(model, df)
+    X = df.drop(columns=[TARGET_COL]) if TARGET_COL in df.columns else df
+    y = df[TARGET_COL] if TARGET_COL in df.columns else None
+
+    preds = predict(model, X)
 
     ensure_dir(os.path.dirname(args.out_path) or ".")
     preds.to_csv(args.out_path, index=False)
 
     print("Saved predictions:", args.out_path)
     print("Shape:", preds.shape)
+
+    
+    if y is not None:
+       
+    # Can calculate metrics only in cases where the original Y value was not missing
+      y_na_idx = y.isna()
+
+      metric = compute_metrics(y_true = y[~y_na_idx], y_pred=preds[~y_na_idx])
+    
+      print("Model metrics:")
+      print(metric)
+    
