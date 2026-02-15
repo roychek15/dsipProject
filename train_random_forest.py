@@ -22,7 +22,11 @@ class RandomForest:
 
         gridSearch = GridSearchCV(estimator=rf, param_grid=param_grid, scoring="neg_mean_squared_error",
                                     cv=5, n_jobs=-1, verbose=1)
-        gridSearch.fit(X_train, y_train)
+        
+        sample_weight = X_train[SAMPLE_WEIGHT_COL]
+        X_train=X_train.drop(SAMPLE_WEIGHT_COL, axis=1).copy()
+        X_val=X_val.drop(SAMPLE_WEIGHT_COL, axis=1).copy()
+        gridSearch.fit(X_train, y_train, sample_weight=sample_weight)
         self._best_model = gridSearch.best_estimator_
         p = gridSearch.best_params_
 

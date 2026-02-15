@@ -65,5 +65,5 @@ if __name__ == "__main__":
     rnd_forest.save_model(args.models_dir, args.results_dir)
 
     print("basic_model - rmse:", basic_metrics.get("val_rmse"))
-    print(f"best_kmeans_model - k: {best_kmeans_model.n_clusters}, rmse: {kmeans_metrics.get("val_rmse")}")
+    print(f'best_kmeans_model - k: {best_kmeans_model.n_clusters}, rmse: {kmeans_metrics.get("val_rmse")}')
     print("best_rnd_forest_model - rmse:", rnd_frst_metrics.get("val_rmse"))

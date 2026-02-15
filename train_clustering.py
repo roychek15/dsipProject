@@ -13,6 +13,11 @@ class KmeansCluster:
 
         best_mse = float("inf")
 
+
+
+        X_train=X_train.drop(SAMPLE_WEIGHT_COL, axis=1).copy()
+        X_val=X_val.drop(SAMPLE_WEIGHT_COL, axis=1).copy()
+
         imputer = SimpleImputer(strategy="median")  # or "mean"
         X_train_imp = imputer.fit_transform(X_train)
         X_val_imp = imputer.transform(X_val)

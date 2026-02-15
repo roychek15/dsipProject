@@ -1,18 +1,18 @@
 {
   "model": "RandomForestRegressor",
   "seed": 42,
-  "n_estimators": 500,
+  "n_estimators": 300,
   "max_depth": 12,
   "min_samples_leaf": 7,
   "max_features": 10,
   "max_samples": 0.85,
   "n_train": 41683,
   "n_val": 10421,
-  "train_rmse": 0.3558565994610722,
-  "val_rmse": 0.40691652866070227,
-  "train_mae": 0.19371067879279769,
-  "val_mae": 0.21643479814446615,
-  "train_r2": 0.345757106422072,
-  "val_r2": 0.16685453782529647,
-  "run_timestamp": "2026-02-15T14:28:48.630794Z"
+  "train_rmse": 0.3601443678437306,
+  "val_rmse": 0.40840323965076675,
+  "train_mae": 0.19668154722651518,
+  "val_mae": 0.21783093266192652,
+  "train_r2": 0.32989598492460703,
+  "val_r2": 0.1607554526903996,
+  "run_timestamp": "2026-02-15T17:11:40.404375Z"
 }

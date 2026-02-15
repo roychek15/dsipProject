@@ -2,7 +2,7 @@ import argparse
 import os
 import joblib
 import pandas as pd
-from capston_polaris_v4 import  compute_metrics
+from capston_polaris_v4 import *
 
 TARGET_COL = "review_scores_rating"
 
@@ -64,6 +64,8 @@ if __name__ == "__main__":
 
     X = df.drop(columns=[TARGET_COL]) if TARGET_COL in df.columns else df
     y = df[TARGET_COL] if TARGET_COL in df.columns else None
+
+    X = X.drop(columns=[SAMPLE_WEIGHT_COL]) # we save the sample weights column along, but we do not want to predict based on it.
 
     preds = predict(model, X)
 
