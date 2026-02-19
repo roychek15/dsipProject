@@ -7,6 +7,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 
+TARGET_COL = "review_scores_rating"
 
 def ensure_dir(path: str) -> None:
     if path and not os.path.exists(path):
@@ -56,7 +57,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--pred-path",
         type=str,
-        default="results/pred_test.csv",
+        default="results/predictions.csv",
         help="Path to predictions CSV with columns y_true,y_pred",
     )
     parser.add_argument(
@@ -70,9 +71,11 @@ if __name__ == "__main__":
 
     ensure_dir(args.out_dir)
 
-    df = load_preds(args.pred_path)
-    y_true = df["y_true"].to_numpy()
+    df = pd.read_csv("results/predictions.csv")
     y_pred = df["y_pred"].to_numpy()
+
+    df = pd.read_csv("data/test.csv")
+    y_true = df[TARGET_COL].to_numpy()
 
     metrics = compute_metrics(y_true, y_pred)
 
