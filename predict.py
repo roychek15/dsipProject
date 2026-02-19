@@ -47,8 +47,8 @@ if __name__ == "__main__":
     parser.add_argument(
         "--csv-path",
         type=str,
-        default="data/processed.csv",
-        help="Path to input CSV (typically processed CSV)",
+        default="data/test.csv",
+        help="Path to input test CSV",
     )
     parser.add_argument(
         "--out-path",
